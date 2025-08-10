@@ -170,7 +170,7 @@
           React.createElement('div',{style:{display:'flex',gap:8,alignItems:'center'}},
             React.createElement('input',{placeholder:'企業名で検索（部分一致）',value:searchQ,onInput:e=>setSearchQ(e.target.value)}),
             React.createElement('input',{type:'file',accept:'.xlsx,.xls',onChange:handleExcel}),
-            React.createElement('button',{onclick:refreshPrice},'価格更新')
+            React.createElement('button',{onClick:refreshPrice},'価格更新')
           )
         ),
         React.createElement('div',{className:'grid main',style:{marginTop:16}},
@@ -256,7 +256,7 @@
           )
         )
       );
-      ReactDOM.createRoot(document.getElementById("app")).render(app);
+      ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(App));
 
       // 局所スコープの共通変数（式で使うもの）
       function currentOpReg(){ return linreg(window.__op||[0,0,0,0,0]); }
