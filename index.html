@@ -24,9 +24,10 @@
   <script>window.API_BASE = "https://stock-quote-api-opal.vercel.app";</script>
 
   <!-- ローカル同梱の UMD ライブラリ（CDN不要） -->
-  <script src="./vendor/react.production.min.js"></script>
-  <script src="./vendor/react-dom.production.min.js"></script>
-  <script src="./vendor/xlsx.full.min.js"></script>
+  <!-- ルート直下に置いたファイルを読み込む -->
+  <script src="./react.production.min.js"></script>
+  <script src="./react-dom.production.min.js"></script>
+  <script src="./xlsx.full.min.js"></script>
 </head>
 <body>
   <div id="app" class="wrap"><div class="card"><b>読み込み中…</b></div></div>
