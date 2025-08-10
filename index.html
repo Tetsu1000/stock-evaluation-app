@@ -10,7 +10,6 @@
     *{box-sizing:border-box} body{margin:0;background:linear-gradient(#fff,#f8fafc);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
     .wrap{max-width:1200px;margin:24px auto;padding:0 20px}
     .toolbar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
-    .search input{padding:10px 12px;border:1px solid var(--line);border-radius:10px}
     .grid{display:grid;gap:16px} .main{grid-template-columns:2fr 1fr}
     .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px}
     .row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
@@ -20,11 +19,10 @@
     .badge{display:inline-block;padding:6px 12px;border-radius:999px;color:#fff}
   </style>
 
-  <!-- ★ ここをあなたのAPIエンドポイントに変更可能（デフォは既にあなたのVercel API） -->
+  <!-- API エンドポイント（必要なら変更可） -->
   <script>window.API_BASE = "https://stock-quote-api-opal.vercel.app";</script>
 
-  <!-- ローカル同梱の UMD ライブラリ（CDN不要） -->
-  <!-- ルート直下に置いたファイルを読み込む -->
+  <!-- ルート直下の UMD ライブラリ（同じリポジトリの直下に置いてください） -->
   <script src="./react.production.min.js"></script>
   <script src="./react-dom.production.min.js"></script>
   <script src="./xlsx.full.min.js"></script>
@@ -33,11 +31,8 @@
   <div id="app" class="wrap"><div class="card"><b>読み込み中…</b></div></div>
 
   <script>
-  // ===== App Boot =====
   (function(){
     const {useState,useEffect,useMemo} = React;
-
-    // --- Utils ---
     const asArray = (v)=>Array.isArray(v)?v:[]; const clamp=(x,lo=0,hi=100)=>Math.max(lo,Math.min(hi,x));
     const mean=(a)=>{const b=asArray(a).map(Number).filter(x=>Number.isFinite(x));return b.length?b.reduce((s,v)=>s+v,0)/b.length:0};
     const stdev=(a)=>{const b=asArray(a).map(Number).filter(x=>Number.isFinite(x));const m=mean(b);const v=b.length?b.reduce((s,v2)=>s+(v2-m)**2,0)/b.length:0;return Math.sqrt(Math.max(0,v));};
@@ -49,30 +44,24 @@
     const numberOrEmpty=(v)=>{if(v===""||v==null)return "";const n=Number(String(v).replace(/[\u3000\s,]/g,""));return Number.isFinite(n)?n:"";};
     const parsePercent=(v)=>{if(v==null||v==="")return 0;const s=String(v).trim();if(s.includes("%"))return toNum(s.replace(/%/g,""));const n=toNum(s);return Math.abs(n)<=1?n*100:n;};
     const yearLabels=[2021,2022,2023,2024,2025];
-
     function linreg(arr){ const y=asArray(arr).map(v=>+v||0); const n=y.length; if(n<2) return {slope:0,intercept:mean(y),se:0};
       const x=Array.from({length:n},(_,i)=>i+1); const mx=mean(x), my=mean(y); let num=0, den=0;
       for(let i=0;i<n;i++){ num+=(x[i]-mx)*(y[i]-my); den+=(x[i]-mx)**2; }
       const slope=den===0?0:num/den; const b=my-slope*mx;
       let sse=0; for(let i=0;i<n;i++){ const fit=slope*x[i] + b; sse+=(y[i]-fit)**2; }
       const se=Math.sqrt(Math.max(0, sse/Math.max(1,n-2))); return {slope,intercept:b,se}; }
-
     function calcBarrierScore(roe){ const a=asArray(roe); if(a.length<5) return 0; const last=a[4]??0; const slope=linreg(a).slope; return last/3 + slope/10; }
 
-    // --- Quote Fetch（/api/quote → Yahoo → Stooq）---
     const QUOTE_API = (window.API_BASE||"") + "/api/quote";
     async function fetchQuote(ticker){
       if(!ticker) return {price:null,source:null}; const tk=String(ticker).trim();
-      // hosted API
       try{ const r=await fetch(QUOTE_API+"?ticker="+encodeURIComponent(tk),{cache:"no-store"});
         if(r.ok){ const j=await r.json(); const px=Number(j.price);
           if(Number.isFinite(px)) return {price:px,source:j.source?("api("+j.source+")"):"api"}; } }catch(e){}
-      // yahoo
       try{ const u="https://query1.finance.yahoo.com/v7/finance/quote?symbols="+encodeURIComponent(tk);
         const r=await fetch(u); if(r.ok){ const j=await r.json(); const q=j?.quoteResponse?.result?.[0]??null;
           const px=Number(q?.regularMarketPrice ?? q?.postMarketPrice ?? q?.preMarketPrice ?? q?.regularMarketPreviousClose);
           if(Number.isFinite(px)) return {price:px,source:"yahoo"}; } }catch(e){}
-      // stooq
       try{ let s=tk.toLowerCase(); if(s.endsWith(".t")) s=s.replace(/\.t$/,".jp");
         const u=`https://stooq.com/q/l/?s=${encodeURIComponent(s)}&f=sd2t2ohlcv&h&e=csv`;
         const r=await fetch(u); if(r.ok){ const text=await r.text(); const lines=text.trim().split(/\r?\n/);
@@ -82,7 +71,7 @@
     }
 
     function App(){
-      // メタ
+      const {useState,useEffect,useMemo} = React;
       const [meta,setMeta]=useState({name:"",ticker:"",sector:""});
       const [op,setOp]=useState([0,0,0,0,0]), [fcf,setFcf]=useState([0,0,0,0,0]), [roe,setRoe]=useState([0,0,0,0,0]);
       const [price,setPrice]=useState(0), [shares,setShares]=useState(0);
@@ -108,7 +97,6 @@
       const datasetFiltered=useMemo(()=>{ const q=(searchQ||"").toLowerCase(); return asArray(dataset).filter(r=>(r?.name||"").toLowerCase().includes(q)); },[dataset,searchQ]);
       useEffect(()=>{ if(searchQ && datasetFiltered.length) setFromRow(datasetFiltered[0]); },[searchQ,datasetFiltered]);
 
-      // スコア計算（Canvas版と同等）
       const opReg=linreg(op), opMean=Math.max(1e-9,mean(op)); const slopeDiv=opReg.slope/opMean, seDivRaw=opReg.se/opMean;
       const cohort=useMemo(()=>{
         if(!dataset.length) return null;
@@ -136,7 +124,6 @@
       useEffect(()=>{ const tk=(meta.ticker||"").trim(); if(!tk) return; let cancelled=false; const t=setTimeout(async()=>{ const {price:px,source}=await fetchQuote(tk); if(!cancelled){ if(px!=null) setPrice(px); if(source) setQuoteStatus(source); } }, 200); return ()=>{cancelled=true;clearTimeout(t);} },[meta.ticker]);
       async function refreshPrice(){ const tk=(meta.ticker||"").trim(); if(!tk) return; const {price:px,source}=await fetchQuote(tk); if(px!=null) setPrice(px); if(source) setQuoteStatus(source); }
 
-      // 一覧（投資スコア降順・常時表示）
       function evalAll(ds){
         const s1=ds.map(r=>{const lr=linreg(r.op||[]);const m=Math.max(1e-9,mean(r.op||[]));return lr.slope/m;});
         const s2=ds.map(r=>{const lr=linreg(r.op||[]);const m=Math.max(1e-9,mean(r.op||[]));return lr.se/m;});
@@ -161,7 +148,6 @@
       }
       const lists=useMemo(()=>{ const rs=evalAll(dataset||[]); return { great: rs.filter(r=>r.investScore>=12), good: rs.filter(r=>r.investScore>=10&&r.investScore<12) }; },[dataset]);
 
-      // --- UI ---
       const app = React.createElement('div',null,
         React.createElement('div',{className:'toolbar'},
           React.createElement('div',null, React.createElement('h2',null,'株式評価ミニアプリ（Vercel静的サイト版）'),
@@ -252,18 +238,41 @@
                   React.createElement('div',{className:'small muted',style:{gridColumn:'1 / -1'}}, '注：r=(標準化SE+7)/100、g=(標準化傾き+2.5)/100。参入障壁は 昨期ROE[%]/3 + 5年傾き/10。株価取得は /api/quote → Yahoo → Stooq の順。')
                 );
               })()
+            ),
+            React.createElement('div',{className:'card'},
+              React.createElement('div',{className:'muted small',style:{marginBottom:8}},'一覧（投資スコア降順）'),
+              React.createElement('div',{className:'row header'},React.createElement('div',null,'社名'),React.createElement('div',null,'投資スコア'),React.createElement('div',null,'現在株価'),React.createElement('div',null,'割安度判定')),
+              (function(){
+                const rs = (dataset && dataset.length) ? (function evalAll(ds){
+                  const s1=ds.map(r=>{const lr=linreg(r.op||[]);const m=Math.max(1e-9,mean(r.op||[]));return lr.slope/m;});
+                  const s2=ds.map(r=>{const lr=linreg(r.op||[]);const m=Math.max(1e-9,mean(r.op||[]));return lr.se/m;});
+                  const s2i=s2.map(x=>1/Math.max(1e-9,x));
+                  const med1=median(s1), I=iqr(s1);
+                  const rzArr=I===0?s1.map(()=>0.5):s1.map(x=>(x-med1)/I);
+                  const a1={mn:Math.min(...rzArr), mx:Math.max(...rzArr)}, a2={mn:Math.min(...s2i), mx:Math.max(...s2i)};
+                  return ds.map(row=>{
+                    const lr=linreg(row.op||[]); const m=Math.max(1e-9,mean(row.op||[]));
+                    const slopeDiv=lr.slope/m; const seDiv=lr.se/m;
+                    const rz=I===0?0.5:(slopeDiv-med1)/I;
+                    const growth=(a1.mx===a1.mn?0.5:(rz-a1.mn)/(a1.mx-a1.mn))*100;
+                    const inv=1/Math.max(1e-9,seDiv);
+                    const bre=(a2.mx===a2.mn?0.5:(inv-a2.mn)/(a2.mx-a2.mn))*100;
+                    const opTrend=((growth+bre)/2)*0.15;
+                    const fund=asArray(row.fcf).filter(x=>(+x||0)>0).length;
+                    const barrier=calcBarrierScore(row.roe||[]);
+                    const invest=opTrend+fund+barrier;
+                    const label=invest<8?"売るべき企業": invest<10?"様子見企業": invest<12?"よい企業":"すばらしい企業";
+                    return { id:row.id, name:row.name, ticker:row.ticker, price:row.price, investScore:invest, investLabel:label, valueLabel:"-" };
+                  }).sort((a,b)=>b.investScore-a.investScore);
+                })(dataset) : [];
+                return rs.length? rs.map(r=>React.createElement('div',{key:r.id,className:'row'},React.createElement('div',null,r.name),React.createElement('div',null,r.investScore.toFixed(2)),React.createElement('div',null,prettyNum(r.price)),React.createElement('div',null,r.valueLabel))) : React.createElement('div',{className:'small muted',style:{padding:'8px 0'}},'該当なし');
+              })()
             )
           )
         )
       );
-      ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(App));
-
-      // 局所スコープの共通変数（式で使うもの）
-      function currentOpReg(){ return linreg(window.__op||[0,0,0,0,0]); }
-      // 以下は上のスコープで既に展開済み（opTrendScore等は都度の式で再計算させています）
-    }
-  })();
+      ReactDOM.createRoot(document.getElementById("app")).render(app);
+    })();
   </script>
 </body>
 </html>
-
